@@ -35,7 +35,8 @@ main { min-height: 100vh; }
   border-bottom: 1px solid rgba(17,26,23,.12);
 }
 .brand { color: var(--ink); text-decoration: none; font-weight: 800; display: flex; gap: 11px; align-items: center; letter-spacing: -.04em; font-size: 20px; }
-.brand-mark { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; background: var(--dark); color: var(--lime); font-family: var(--font-mono); font-size: 15px; }
+.brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 9px; background: var(--dark); overflow: hidden; }
+.brand-mark img { width: 29px; height: 29px; object-fit: contain; }
 .privacy-pill { font-family: var(--font-mono); font-size: 11px; color: #53605b; border: 1px solid var(--line); border-radius: 99px; background: rgba(255,255,255,.62); padding: 9px 13px; }
 .privacy-pill span { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #38b67c; margin-right: 7px; box-shadow: 0 0 0 4px rgba(56,182,124,.12); }
 .text-link { justify-self: end; color: var(--ink); font-weight: 700; font-size: 13px; text-decoration: none; }

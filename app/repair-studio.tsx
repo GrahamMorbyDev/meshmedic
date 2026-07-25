@@ -556,7 +556,7 @@ export function RepairStudio() {
     <main>
       <header className="topbar">
         <a className="brand" href="#" aria-label="MeshMedic home">
-          <span className="brand-mark">M</span>
+          <span className="brand-mark"><img src="/meshmedic-mark.png" alt="" /></span>
           <span>MeshMedic</span>
         </a>
         <div className="privacy-pill"><span /> Local processing · your file stays private</div>
