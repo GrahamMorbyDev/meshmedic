@@ -33,6 +33,13 @@ type LoadedModel = {
   };
 };
 
+type RepairOptions = {
+  removeUnsafe: boolean;
+  weldVertices: boolean;
+  recalculateNormals: boolean;
+  fillPlanarHoles: boolean;
+};
+
 const EMPTY_STATS: MeshStats = {
   triangles: 0,
   vertices: 0,
@@ -116,7 +123,7 @@ function analyseGeometry(source: THREE.BufferGeometry): MeshStats {
   };
 }
 
-function safeRepair(source: THREE.BufferGeometry) {
+function safeRepair(source: THREE.BufferGeometry, options: RepairOptions) {
   const nonIndexed = source.toNonIndexed();
   const position = nonIndexed.getAttribute("position");
   const kept: number[] = [];
@@ -131,21 +138,23 @@ function safeRepair(source: THREE.BufferGeometry) {
       .map((v) => `${v.x.toFixed(5)},${v.y.toFixed(5)},${v.z.toFixed(5)}`)
       .sort()
       .join("|");
-    if (area < 1e-14 || seen.has(key)) continue;
+    if (options.removeUnsafe && (area < 1e-14 || seen.has(key))) continue;
     seen.add(key);
     kept.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
   }
 
   const cleaned = new THREE.BufferGeometry();
   cleaned.setAttribute("position", new THREE.Float32BufferAttribute(kept, 3));
-  const welded = mergeVertices(cleaned, 1e-5);
-  welded.deleteAttribute("normal");
-  welded.computeVertexNormals();
-  welded.computeBoundingBox();
-  welded.computeBoundingSphere();
+  const repaired = options.weldVertices ? mergeVertices(cleaned, 1e-5) : cleaned.clone();
+  if (options.recalculateNormals) {
+    repaired.deleteAttribute("normal");
+    repaired.computeVertexNormals();
+  }
+  repaired.computeBoundingBox();
+  repaired.computeBoundingSphere();
   nonIndexed.dispose();
   cleaned.dispose();
-  return welded;
+  return repaired;
 }
 
 type BoundaryEdge = { a: number; b: number };
@@ -300,11 +309,13 @@ function ModelViewport({
   wireframe,
   showFaults,
   viewMode,
+  activeIssue,
 }: {
   model: LoadedModel | null;
   wireframe: boolean;
   showFaults: boolean;
   viewMode: "original" | "repaired";
+  activeIssue: "open" | "nonManifold" | null;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
 
@@ -351,6 +362,8 @@ function ModelViewport({
         metalness: 0.08,
         wireframe,
         side: THREE.DoubleSide,
+        transparent: Boolean(activeIssue),
+        opacity: activeIssue ? 0.26 : 1,
       });
       mesh = new THREE.Mesh(geometry, material);
       scene.add(mesh);
@@ -373,8 +386,8 @@ function ModelViewport({
           faultObjects.push(lines);
           scene.add(lines);
         };
-        makeFaults(faults.naked, "#ffbd4a");
-        makeFaults(faults.manifold, "#ff5f6d");
+        if (!activeIssue || activeIssue === "open") makeFaults(faults.naked, "#ffbd4a");
+        if (!activeIssue || activeIssue === "nonManifold") makeFaults(faults.manifold, "#ff5f6d");
       }
     }
 
@@ -416,7 +429,7 @@ function ModelViewport({
       renderer.dispose();
       mount.removeChild(renderer.domElement);
     };
-  }, [model, wireframe, showFaults, viewMode]);
+  }, [model, wireframe, showFaults, viewMode, activeIssue]);
 
   return <div ref={mountRef} className="viewport-canvas" aria-label="Interactive 3D model preview" />;
 }
@@ -429,6 +442,13 @@ export function RepairStudio() {
   const [wireframe, setWireframe] = useState(false);
   const [showFaults, setShowFaults] = useState(true);
   const [viewMode, setViewMode] = useState<"original" | "repaired">("original");
+  const [activeIssue, setActiveIssue] = useState<"open" | "nonManifold" | null>(null);
+  const [repairOptions, setRepairOptions] = useState<RepairOptions>({
+    removeUnsafe: true,
+    weldVertices: true,
+    recalculateNormals: true,
+    fillPlanarHoles: true,
+  });
   const [status, setStatus] = useState("Waiting for an STL");
 
   const loadFile = useCallback(async (file?: File) => {
@@ -456,6 +476,7 @@ export function RepairStudio() {
         repaired: false,
       });
       setViewMode("original");
+      setActiveIssue(null);
       setStatus(stats.nakedEdges || stats.nonManifoldEdges ? "Issues found — safe repair is ready" : "Mesh looks healthy");
     } catch {
       setStatus("That STL could not be read");
@@ -476,8 +497,10 @@ export function RepairStudio() {
     setProcessing(true);
     setStatus("Cleaning and rebuilding mesh…");
     await new Promise((resolve) => setTimeout(resolve, 400));
-    const cleaned = safeRepair(model.current);
-    const filled = fillConservativeHoles(cleaned);
+    const cleaned = safeRepair(model.current, repairOptions);
+    const filled = repairOptions.fillPlanarHoles
+      ? fillConservativeHoles(cleaned)
+      : { geometry: cleaned.clone(), holesFilled: 0, facesAdded: 0 };
     const stats = analyseGeometry(filled.geometry);
     setModel({
       ...model,
@@ -493,6 +516,7 @@ export function RepairStudio() {
     });
     cleaned.dispose();
     setViewMode("repaired");
+    setActiveIssue(null);
     setStatus("Standard repair complete");
     setProcessing(false);
   };
@@ -565,7 +589,7 @@ export function RepairStudio() {
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
           >
-            <ModelViewport model={model} wireframe={wireframe} showFaults={showFaults} viewMode={viewMode} />
+            <ModelViewport model={model} wireframe={wireframe} showFaults={showFaults} viewMode={viewMode} activeIssue={activeIssue} />
             {!model && (
               <div className="drop-content">
                 <div className="upload-glyph">↥</div>
@@ -585,7 +609,11 @@ export function RepairStudio() {
                   </div>
                 )}
                 {showFaults && (viewMode === "original" || !model.repaired) && (
-                  <div className="fault-legend"><span className="naked" /> Open edge <span className="manifold" /> Non-manifold</div>
+                  <div className="fault-legend">
+                    {(!activeIssue || activeIssue === "open") && <><span className="naked" /> Open edge</>}
+                    {(!activeIssue || activeIssue === "nonManifold") && <><span className="manifold" /> Non-manifold</>}
+                    {activeIssue && <button onClick={() => setActiveIssue(null)}>Show all</button>}
+                  </div>
                 )}
                 <div className="model-meta">
                   <span>{formatBytes(model.bytes)}</span>
@@ -617,13 +645,26 @@ export function RepairStudio() {
           ) : (
             <>
               <div className="issue-list">
-                {issues.map((issue) => (
-                  <div className="issue-row" key={issue.label}>
+                {issues.map((issue) => {
+                  const issueKey = issue.label === "Open edges" ? "open" : issue.label === "Non-manifold" ? "nonManifold" : null;
+                  return (
+                  <button
+                    className={`issue-row ${issueKey && activeIssue === issueKey ? "selected" : ""}`}
+                    key={issue.label}
+                    onClick={() => {
+                      if (!issueKey || issue.value === 0) return;
+                      setActiveIssue(activeIssue === issueKey ? null : issueKey);
+                      setShowFaults(true);
+                      setViewMode("original");
+                    }}
+                    disabled={!issueKey || issue.value === 0}
+                  >
                     <span className={`status-dot ${issue.tone}`} />
                     <span>{issue.label}</span>
                     <strong>{fmt.format(issue.value)}</strong>
-                  </div>
-                ))}
+                    {issueKey && issue.value > 0 && <small>Inspect</small>}
+                  </button>
+                )})}
                 <div className="issue-row">
                   <span className="status-dot neutral" />
                   <span>Separate shells</span>
@@ -644,10 +685,30 @@ export function RepairStudio() {
 
               <div className="action-stack">
                 {!model.repaired ? (
-                  <button className="repair-button" onClick={repair} disabled={processing}>
-                    <span>✦</span> Run standard repair
-                    <small>Safe cleanup + planar hole filling</small>
-                  </button>
+                  <>
+                    <div className="repair-controls">
+                      <div><span>REPAIR OPERATIONS</span><small>Choose exactly what changes</small></div>
+                      {([
+                        ["removeUnsafe", "Remove unsafe faces"],
+                        ["weldVertices", "Weld matching vertices"],
+                        ["recalculateNormals", "Recalculate normals"],
+                        ["fillPlanarHoles", "Fill planar holes"],
+                      ] as [keyof RepairOptions, string][]).map(([key, label]) => (
+                        <label key={key}>
+                          <input
+                            type="checkbox"
+                            checked={repairOptions[key]}
+                            onChange={() => setRepairOptions({ ...repairOptions, [key]: !repairOptions[key] })}
+                          />
+                          <span>{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <button className="repair-button" onClick={repair} disabled={processing || !Object.values(repairOptions).some(Boolean)}>
+                      <span>✦</span> Apply selected repairs
+                      <small>Review the result before export</small>
+                    </button>
+                  </>
                 ) : (
                   <button className="download-button" onClick={download}>
                     <span>↓</span> Download repaired STL
@@ -666,7 +727,10 @@ export function RepairStudio() {
         <div><span>03</span><strong>Slicer-ready output</strong><p>Download a standard binary STL for your existing print workflow.</p></div>
       </section>
 
-      <footer><span>MeshMedic α</span><p>Automatic repair can’t infer design intent. Always inspect the slice preview before printing.</p></footer>
+      <footer>
+        <span>MeshMedic α · © {new Date().getFullYear()} <a href="https://greypatrick.com" target="_blank" rel="noreferrer">Grey Patrick</a></span>
+        <p>Automatic repair can’t infer design intent. Always inspect the slice preview before printing.</p>
+      </footer>
     </main>
   );
 }
