@@ -25,6 +25,12 @@ type LoadedModel = {
   originalStats: MeshStats;
   stats: MeshStats;
   repaired: boolean;
+  repairInfo?: {
+    removedFaces: number;
+    weldedVertices: number;
+    holesFilled: number;
+    facesAdded: number;
+  };
 };
 
 const EMPTY_STATS: MeshStats = {
@@ -142,6 +148,138 @@ function safeRepair(source: THREE.BufferGeometry) {
   return welded;
 }
 
+type BoundaryEdge = { a: number; b: number };
+
+function indexedGeometry(source: THREE.BufferGeometry) {
+  return source.index ? source.clone() : mergeVertices(source.clone(), 1e-5);
+}
+
+function boundaryData(source: THREE.BufferGeometry) {
+  const geometry = indexedGeometry(source);
+  const index = geometry.getIndex();
+  const edgeUses = new Map<string, BoundaryEdge[]>();
+  if (!index) return { geometry, boundaries: [] as BoundaryEdge[], nonManifold: [] as BoundaryEdge[] };
+
+  for (let i = 0; i < index.count; i += 3) {
+    const face = [index.getX(i), index.getX(i + 1), index.getX(i + 2)];
+    for (const [a, b] of [[face[0], face[1]], [face[1], face[2]], [face[2], face[0]]]) {
+      const key = a < b ? `${a}:${b}` : `${b}:${a}`;
+      const uses = edgeUses.get(key) ?? [];
+      uses.push({ a, b });
+      edgeUses.set(key, uses);
+    }
+  }
+
+  const boundaries: BoundaryEdge[] = [];
+  const nonManifold: BoundaryEdge[] = [];
+  edgeUses.forEach((uses) => {
+    if (uses.length === 1) boundaries.push(uses[0]);
+    if (uses.length > 2) nonManifold.push(uses[0]);
+  });
+  return { geometry, boundaries, nonManifold };
+}
+
+function boundaryLoops(source: THREE.BufferGeometry) {
+  const { geometry, boundaries } = boundaryData(source);
+  const outgoing = new Map<number, BoundaryEdge[]>();
+  boundaries.forEach((edge) => {
+    const list = outgoing.get(edge.a) ?? [];
+    list.push(edge);
+    outgoing.set(edge.a, list);
+  });
+
+  const used = new Set<string>();
+  const loops: number[][] = [];
+  const id = (edge: BoundaryEdge) => `${edge.a}>${edge.b}`;
+
+  for (const start of boundaries) {
+    if (used.has(id(start))) continue;
+    const loop = [start.a];
+    let edge = start;
+    let guard = 0;
+    while (guard++ < boundaries.length + 1) {
+      used.add(id(edge));
+      loop.push(edge.b);
+      if (edge.b === start.a) {
+        loop.pop();
+        if (loop.length >= 3) loops.push(loop);
+        break;
+      }
+      const next = (outgoing.get(edge.b) ?? []).find((candidate) => !used.has(id(candidate)));
+      if (!next) break;
+      edge = next;
+    }
+  }
+  return { geometry, loops };
+}
+
+function fillConservativeHoles(source: THREE.BufferGeometry) {
+  const { geometry, loops } = boundaryLoops(source);
+  const position = geometry.getAttribute("position");
+  const base = geometry.toNonIndexed();
+  const basePosition = base.getAttribute("position");
+  const values = Array.from(basePosition.array as ArrayLike<number>);
+  geometry.computeBoundingBox();
+  const size = new THREE.Vector3();
+  geometry.boundingBox?.getSize(size);
+  const diagonal = Math.max(size.length(), 1e-6);
+  let holesFilled = 0;
+  let facesAdded = 0;
+
+  for (const loop of loops) {
+    if (loop.length < 3 || loop.length > 128) continue;
+    const points = loop.map((index) => new THREE.Vector3().fromBufferAttribute(position, index));
+    const centroid = points.reduce((sum, point) => sum.add(point), new THREE.Vector3()).multiplyScalar(1 / points.length);
+    const normal = new THREE.Vector3();
+    for (let i = 0; i < points.length; i += 1) {
+      const current = points[i];
+      const next = points[(i + 1) % points.length];
+      normal.x += (current.y - next.y) * (current.z + next.z);
+      normal.y += (current.z - next.z) * (current.x + next.x);
+      normal.z += (current.x - next.x) * (current.y + next.y);
+    }
+    if (normal.lengthSq() < 1e-12) continue;
+    normal.normalize();
+    const maxPlaneError = Math.max(...points.map((point) => Math.abs(point.clone().sub(centroid).dot(normal))));
+    if (maxPlaneError > diagonal * 0.006) continue;
+
+    for (let i = 0; i < points.length; i += 1) {
+      const a = points[i];
+      const b = points[(i + 1) % points.length];
+      values.push(b.x, b.y, b.z, a.x, a.y, a.z, centroid.x, centroid.y, centroid.z);
+      facesAdded += 1;
+    }
+    holesFilled += 1;
+  }
+
+  const result = new THREE.BufferGeometry();
+  result.setAttribute("position", new THREE.Float32BufferAttribute(values, 3));
+  const welded = mergeVertices(result, 1e-5);
+  welded.computeVertexNormals();
+  welded.computeBoundingBox();
+  welded.computeBoundingSphere();
+  geometry.dispose();
+  base.dispose();
+  result.dispose();
+  return { geometry: welded, holesFilled, facesAdded };
+}
+
+function faultSegments(source: THREE.BufferGeometry) {
+  const { geometry, boundaries, nonManifold } = boundaryData(source);
+  const position = geometry.getAttribute("position");
+  const naked: number[] = [];
+  const manifold: number[] = [];
+  const append = (target: number[], edge: BoundaryEdge) => {
+    const a = new THREE.Vector3().fromBufferAttribute(position, edge.a);
+    const b = new THREE.Vector3().fromBufferAttribute(position, edge.b);
+    target.push(a.x, a.y, a.z, b.x, b.y, b.z);
+  };
+  boundaries.forEach((edge) => append(naked, edge));
+  nonManifold.forEach((edge) => append(manifold, edge));
+  geometry.dispose();
+  return { naked, manifold };
+}
+
 function healthScore(stats: MeshStats) {
   if (!stats.triangles) return 0;
   const faults =
@@ -157,7 +295,17 @@ function formatBytes(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function ModelViewport({ model, wireframe }: { model: LoadedModel | null; wireframe: boolean }) {
+function ModelViewport({
+  model,
+  wireframe,
+  showFaults,
+  viewMode,
+}: {
+  model: LoadedModel | null;
+  wireframe: boolean;
+  showFaults: boolean;
+  viewMode: "original" | "repaired";
+}) {
   const mountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -185,8 +333,11 @@ function ModelViewport({ model, wireframe }: { model: LoadedModel | null; wirefr
     scene.add(rim);
 
     let mesh: THREE.Mesh | undefined;
+    const faultObjects: THREE.LineSegments[] = [];
     if (model) {
-      const geometry = model.current.clone();
+      const source = viewMode === "original" ? model.original : model.current;
+      const faults = showFaults ? faultSegments(source) : null;
+      const geometry = source.clone();
       geometry.center();
       geometry.computeBoundingBox();
       const size = new THREE.Vector3();
@@ -203,6 +354,28 @@ function ModelViewport({ model, wireframe }: { model: LoadedModel | null; wirefr
       });
       mesh = new THREE.Mesh(geometry, material);
       scene.add(mesh);
+
+      if (faults) {
+        const sourceBox = new THREE.Box3().setFromBufferAttribute(source.getAttribute("position"));
+        const sourceCenter = sourceBox.getCenter(new THREE.Vector3());
+        const makeFaults = (values: number[], color: string) => {
+          if (!values.length) return;
+          const faultGeometry = new THREE.BufferGeometry();
+          faultGeometry.setAttribute("position", new THREE.Float32BufferAttribute(values, 3));
+          faultGeometry.translate(-sourceCenter.x, -sourceCenter.y, -sourceCenter.z);
+          faultGeometry.scale(2.7 / max, 2.7 / max, 2.7 / max);
+          faultGeometry.rotateX(-Math.PI / 2);
+          const lines = new THREE.LineSegments(
+            faultGeometry,
+            new THREE.LineBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.95 }),
+          );
+          lines.renderOrder = 4;
+          faultObjects.push(lines);
+          scene.add(lines);
+        };
+        makeFaults(faults.naked, "#ffbd4a");
+        makeFaults(faults.manifold, "#ff5f6d");
+      }
     }
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -236,10 +409,14 @@ function ModelViewport({ model, wireframe }: { model: LoadedModel | null; wirefr
       controls.dispose();
       mesh?.geometry.dispose();
       (mesh?.material as THREE.Material | undefined)?.dispose();
+      faultObjects.forEach((lines) => {
+        lines.geometry.dispose();
+        (lines.material as THREE.Material).dispose();
+      });
       renderer.dispose();
       mount.removeChild(renderer.domElement);
     };
-  }, [model, wireframe]);
+  }, [model, wireframe, showFaults, viewMode]);
 
   return <div ref={mountRef} className="viewport-canvas" aria-label="Interactive 3D model preview" />;
 }
@@ -250,6 +427,8 @@ export function RepairStudio() {
   const [dragging, setDragging] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [wireframe, setWireframe] = useState(false);
+  const [showFaults, setShowFaults] = useState(true);
+  const [viewMode, setViewMode] = useState<"original" | "repaired">("original");
   const [status, setStatus] = useState("Waiting for an STL");
 
   const loadFile = useCallback(async (file?: File) => {
@@ -276,6 +455,7 @@ export function RepairStudio() {
         stats,
         repaired: false,
       });
+      setViewMode("original");
       setStatus(stats.nakedEdges || stats.nonManifoldEdges ? "Issues found — safe repair is ready" : "Mesh looks healthy");
     } catch {
       setStatus("That STL could not be read");
@@ -296,17 +476,32 @@ export function RepairStudio() {
     setProcessing(true);
     setStatus("Cleaning and rebuilding mesh…");
     await new Promise((resolve) => setTimeout(resolve, 400));
-    const repaired = safeRepair(model.current);
-    const stats = analyseGeometry(repaired);
-    setModel({ ...model, current: repaired, stats, repaired: true });
-    setStatus("Safe repair complete");
+    const cleaned = safeRepair(model.current);
+    const filled = fillConservativeHoles(cleaned);
+    const stats = analyseGeometry(filled.geometry);
+    setModel({
+      ...model,
+      current: filled.geometry,
+      stats,
+      repaired: true,
+      repairInfo: {
+        removedFaces: model.stats.degenerateFaces + model.stats.duplicateFaces,
+        weldedVertices: Math.max(0, model.stats.vertices - stats.vertices + filled.facesAdded),
+        holesFilled: filled.holesFilled,
+        facesAdded: filled.facesAdded,
+      },
+    });
+    cleaned.dispose();
+    setViewMode("repaired");
+    setStatus("Standard repair complete");
     setProcessing(false);
   };
 
   const reset = () => {
     if (!model) return;
     const original = model.original.clone();
-    setModel({ ...model, current: original, stats: model.originalStats, repaired: false });
+    setModel({ ...model, current: original, stats: model.originalStats, repaired: false, repairInfo: undefined });
+    setViewMode("original");
     setStatus("Restored original mesh");
   };
 
@@ -358,6 +553,7 @@ export function RepairStudio() {
               <strong>{model ? model.name : "No model loaded"}</strong>
             </div>
             <div className="viewer-actions">
+              {model && <button className={showFaults ? "icon-button active" : "icon-button"} onClick={() => setShowFaults(!showFaults)} aria-label="Toggle fault highlighting">!</button>}
               <button className={wireframe ? "icon-button active" : "icon-button"} onClick={() => setWireframe(!wireframe)} aria-label="Toggle wireframe">⌗</button>
               {model && <button className="icon-button" onClick={reset} aria-label="Reset original model">↺</button>}
             </div>
@@ -369,7 +565,7 @@ export function RepairStudio() {
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
           >
-            <ModelViewport model={model} wireframe={wireframe} />
+            <ModelViewport model={model} wireframe={wireframe} showFaults={showFaults} viewMode={viewMode} />
             {!model && (
               <div className="drop-content">
                 <div className="upload-glyph">↥</div>
@@ -381,11 +577,22 @@ export function RepairStudio() {
             )}
             {processing && <div className="processing"><span className="spinner" /> {status}</div>}
             {model && !processing && (
-              <div className="model-meta">
-                <span>{formatBytes(model.bytes)}</span>
-                <span>{fmt.format(model.stats.triangles)} triangles</span>
-                <span>Drag to orbit · scroll to zoom</span>
-              </div>
+              <>
+                {model.repaired && (
+                  <div className="comparison-toggle" aria-label="Compare original and repaired model">
+                    <button className={viewMode === "original" ? "active" : ""} onClick={() => setViewMode("original")}>Original</button>
+                    <button className={viewMode === "repaired" ? "active" : ""} onClick={() => setViewMode("repaired")}>Repaired</button>
+                  </div>
+                )}
+                {showFaults && (viewMode === "original" || !model.repaired) && (
+                  <div className="fault-legend"><span className="naked" /> Open edge <span className="manifold" /> Non-manifold</div>
+                )}
+                <div className="model-meta">
+                  <span>{formatBytes(model.bytes)}</span>
+                  <span>{fmt.format((viewMode === "original" ? model.originalStats : model.stats).triangles)} triangles</span>
+                  <span>Drag to orbit · scroll to zoom</span>
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -427,22 +634,26 @@ export function RepairStudio() {
               {model.repaired && (
                 <div className="repair-summary">
                   <span>REPAIR SUMMARY</span>
-                  <p>Removed {fmt.format(model.originalStats.degenerateFaces + model.originalStats.duplicateFaces)} unsafe faces and welded matching vertices.</p>
+                  <div className="summary-grid">
+                    <strong>{model.repairInfo?.holesFilled ?? 0}<small>holes filled</small></strong>
+                    <strong>{model.repairInfo?.removedFaces ?? 0}<small>faces removed</small></strong>
+                    <strong>{model.repairInfo?.facesAdded ?? 0}<small>faces added</small></strong>
+                  </div>
                 </div>
               )}
 
               <div className="action-stack">
                 {!model.repaired ? (
                   <button className="repair-button" onClick={repair} disabled={processing}>
-                    <span>✦</span> Run safe repair
-                    <small>Non-destructive topology cleanup</small>
+                    <span>✦</span> Run standard repair
+                    <small>Safe cleanup + planar hole filling</small>
                   </button>
                 ) : (
                   <button className="download-button" onClick={download}>
                     <span>↓</span> Download repaired STL
                   </button>
                 )}
-                <p className="action-note">Safe repair removes duplicates and zero-area faces, welds coincident vertices and recalculates normals.</p>
+                <p className="action-note">Standard repair cleans unsafe faces, welds matching vertices, recalculates normals and fills conservative planar boundaries. Complex openings are left untouched.</p>
               </div>
             </>
           )}
