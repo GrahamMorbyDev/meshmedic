@@ -721,10 +721,76 @@ export function RepairStudio() {
         </aside>
       </section>
 
+      <a className="sponsor-banner" href="https://chichester3dprinting.com/" target="_blank" rel="sponsored noreferrer">
+        <div className="sponsor-visual" aria-hidden="true">
+          <div className="print-bed"><span /><span /><span /></div>
+          <div className="printed-part">3D</div>
+        </div>
+        <div className="sponsor-copy">
+          <span className="sponsor-label">Featured printing partner</span>
+          <h2>File fixed. Now make it real.</h2>
+          <p>Take your repaired model from screen to finished part with Chichester 3D Printing.</p>
+        </div>
+        <div className="sponsor-brand">
+          <span>CHICHESTER</span>
+          <strong>3D PRINTING</strong>
+          <small>Visit the print studio ↗</small>
+        </div>
+      </a>
+
       <section className="trust-strip" id="how-it-works">
         <div><span>01</span><strong>Private by design</strong><p>Your STL is processed in this tab and never sent to a server.</p></div>
         <div><span>02</span><strong>Changes you can see</strong><p>Compare topology counts before exporting the repaired model.</p></div>
         <div><span>03</span><strong>Slicer-ready output</strong><p>Download a standard binary STL for your existing print workflow.</p></div>
+      </section>
+
+      <section className="seo-content">
+        <div className="seo-intro">
+          <span className="eyebrow">Free online STL fixer</span>
+          <h2>Make broken 3D models printable again.</h2>
+          <p>An STL can look correct on screen while still containing gaps, doubled triangles, inside-out surfaces or impossible edges. MeshMedic examines the triangle topology behind the model, shows you where common faults live and lets you choose which safe repairs to apply.</p>
+        </div>
+        <div className="seo-features">
+          <article>
+            <span>01</span>
+            <h3>Fix non-manifold STL geometry</h3>
+            <p>Find edges connected to too many faces—the kind of ambiguous geometry that can cause missing layers, strange toolpaths and failed slices.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Close straightforward mesh holes</h3>
+            <p>Detect exposed boundaries and conservatively fill small, near-planar openings while leaving complex or uncertain geometry untouched.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Repair without uploading</h3>
+            <p>Your STL stays on your device. Analysis, visualisation and repair run locally in the browser, with no server queue or model storage.</p>
+          </article>
+        </div>
+        <div className="faq-block" id="faq">
+          <div>
+            <span className="eyebrow">STL repair questions</span>
+            <h2>Before you slice.</h2>
+          </div>
+          <div className="faq-list">
+            <details>
+              <summary>How do I repair an STL file online?<span>+</span></summary>
+              <p>Drop the STL into MeshMedic, inspect the highlighted issues, select your repair operations and compare the original with the repaired model before downloading.</p>
+            </details>
+            <details>
+              <summary>Does MeshMedic upload or store my model?<span>+</span></summary>
+              <p>No. The file is parsed and repaired locally inside your web browser. It is not sent to a MeshMedic server.</p>
+            </details>
+            <details>
+              <summary>What mesh errors can it detect?<span>+</span></summary>
+              <p>MeshMedic checks for open edges, non-manifold edges, degenerate faces, duplicate faces and separate shells. It can also weld matching vertices and recalculate surface normals.</p>
+            </details>
+            <details>
+              <summary>Will automatic repair always preserve my design?<span>+</span></summary>
+              <p>No automatic tool can completely understand design intent. MeshMedic uses conservative operations and lets you review the result, but you should always inspect the final slice preview before printing.</p>
+            </details>
+          </div>
+        </div>
       </section>
 
       <footer>
