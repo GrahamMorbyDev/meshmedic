@@ -110,6 +110,13 @@ npm test          # Build and run project checks
 npm run lint      # Run ESLint
 ```
 
+## Support MeshMedic
+
+If you fork, self-host or otherwise find MeshMedic useful, please consider
+supporting its continued development with an entirely optional donation:
+
+[Buy Grey Patrick a coffee](https://buymeacoffee.com/greypatrick)
+
 ## Contributing
 
 Issues, difficult test meshes and focused pull requests are welcome. When
