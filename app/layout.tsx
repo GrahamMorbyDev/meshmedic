@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     default: "Free Online STL Repair Tool | MeshMedic",
     template: "%s | MeshMedic",
   },
-  description: "Repair STL files online for free. Find open edges, non-manifold geometry and broken faces, then download a cleaner, slicer-ready STL. Private browser processing.",
+  description: "Find and highlight STL mesh faults, understand what’s wrong, choose safe repairs and compare the result before downloading. Free and private in your browser.",
   keywords: [
     "STL repair",
     "repair STL online",
@@ -39,13 +39,13 @@ export const metadata: Metadata = {
     url: "https://mesh-medic.com",
     siteName: "MeshMedic",
     title: "Free Online STL Repair Tool | MeshMedic",
-    description: "Inspect and repair common STL mesh problems locally in your browser. No upload queue and no model storage.",
+    description: "See what’s broken, choose safe STL repairs and compare the result before downloading. Free, transparent and private in your browser.",
     locale: "en_GB",
   },
   twitter: {
     card: "summary",
     title: "Free Online STL Repair Tool | MeshMedic",
-    description: "Inspect and repair common STL mesh problems privately in your browser.",
+    description: "See what’s broken, choose safe STL repairs and verify the result privately in your browser.",
   },
   category: "technology",
   icons: {
@@ -71,7 +71,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         applicationCategory: "UtilitiesApplication",
         operatingSystem: "Any modern web browser",
         browserRequirements: "Requires JavaScript and WebGL",
-        description: "A private browser-based STL diagnostics and mesh repair tool for 3D printing.",
+        description: "A transparent browser-based STL repair tool that highlights mesh faults, explains them, gives users control over repairs and supports before-and-after verification.",
         offers: { "@type": "Offer", price: "0", priceCurrency: "GBP" },
         featureList: [
           "Open-edge detection",

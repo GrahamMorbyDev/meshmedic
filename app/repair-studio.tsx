@@ -567,9 +567,9 @@ export function RepairStudio() {
       </header>
 
       <section className="hero">
-        <div className="eyebrow">Browser-native STL diagnostics</div>
-        <h1>Repair the mesh.<br /><em>Keep the model.</em></h1>
-        <p>Find topology problems, clean safe defects and export a slicer-ready STL. Nothing uploads. Nothing waits in a queue.</p>
+        <div className="eyebrow">Transparent STL diagnostics and repair</div>
+        <h1>See what’s broken.<br /><em>Repair it with confidence.</em></h1>
+        <p>MeshMedic highlights STL faults, explains what they mean and lets you choose exactly what to repair. Compare the result before downloading—privately in your browser.</p>
       </section>
 
       <section className="workspace">
@@ -742,9 +742,9 @@ export function RepairStudio() {
       </a>
 
       <section className="trust-strip" id="how-it-works">
-        <div><span>01</span><strong>Private by design</strong><p>Your STL is processed in this tab and never sent to a server.</p></div>
-        <div><span>02</span><strong>Changes you can see</strong><p>Compare topology counts before exporting the repaired model.</p></div>
-        <div><span>03</span><strong>Slicer-ready output</strong><p>Download a standard binary STL for your existing print workflow.</p></div>
+        <div><span>01</span><strong>See the fault</strong><p>Open and non-manifold edges are highlighted directly on your model.</p></div>
+        <div><span>02</span><strong>Control the repair</strong><p>Choose exactly which safe operations MeshMedic applies.</p></div>
+        <div><span>03</span><strong>Verify the result</strong><p>Compare the original and repaired mesh before downloading.</p></div>
       </section>
 
       <aside className="support-card">
