@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-const MEASUREMENT_ID = "G-1C1W3L0VW8";
 const CONSENT_KEY = "meshmedic-analytics-consent";
 
 type ConsentChoice = "granted" | "denied" | null;
@@ -14,7 +13,7 @@ declare global {
   }
 }
 
-function loadGoogleAnalytics() {
+function loadGoogleAnalytics(measurementId: string) {
   if (document.getElementById("meshmedic-google-analytics")) return;
 
   window.dataLayer = window.dataLayer || [];
@@ -26,24 +25,27 @@ function loadGoogleAnalytics() {
     ad_personalization: "denied",
   });
   window.gtag("js", new Date());
-  window.gtag("config", MEASUREMENT_ID);
+  window.gtag("config", measurementId);
 
   const script = document.createElement("script");
   script.id = "meshmedic-google-analytics";
   script.async = true;
-  script.src = `https://www.googletagmanager.com/gtag/js?id=${MEASUREMENT_ID}`;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${measurementId}`;
   document.head.appendChild(script);
 }
 
-export function AnalyticsConsent() {
+export function AnalyticsConsent({ measurementId }: { measurementId: string }) {
   const [choice, setChoice] = useState<ConsentChoice>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     const savedChoice = window.localStorage.getItem(CONSENT_KEY) as ConsentChoice;
-    if (savedChoice === "granted") loadGoogleAnalytics();
-    if (savedChoice === "granted" || savedChoice === "denied") setChoice(savedChoice);
-  }, []);
+    if (savedChoice === "granted" && measurementId) loadGoogleAnalytics(measurementId);
+    if (savedChoice === "granted" || savedChoice === "denied") {
+      const frame = window.requestAnimationFrame(() => setChoice(savedChoice));
+      return () => window.cancelAnimationFrame(frame);
+    }
+  }, [measurementId]);
 
   const choose = (nextChoice: Exclude<ConsentChoice, null>) => {
     window.localStorage.setItem(CONSENT_KEY, nextChoice);
@@ -51,13 +53,15 @@ export function AnalyticsConsent() {
     setSettingsOpen(false);
 
     if (nextChoice === "granted") {
-      loadGoogleAnalytics();
+      loadGoogleAnalytics(measurementId);
     } else if (window.gtag) {
       window.gtag("consent", "update", { analytics_storage: "denied" });
     }
   };
 
   const showBanner = choice === null || settingsOpen;
+
+  if (!measurementId) return null;
 
   return (
     <>

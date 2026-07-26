@@ -1,98 +1,136 @@
-# vinext-starter
+# MeshMedic
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+**See what’s broken. Repair it with confidence.**
 
-## Prerequisites
+MeshMedic is a free, open-source STL diagnostics and repair tool for 3D
+printing. It highlights common mesh faults, explains what they mean, lets the
+user choose which repairs to apply, and provides an original/repaired
+comparison before export.
 
-- Node.js `>=22.13.0`
+Live site: [mesh-medic.com](https://mesh-medic.com)
 
-## Quick Start
+## Why MeshMedic?
+
+Many online STL repair services send models to a remote server and return an
+unexplained result. MeshMedic is designed around transparent, local processing:
+
+- STL files are parsed, analysed, displayed and repaired in the browser.
+- Model geometry is not uploaded to a MeshMedic server.
+- Open and non-manifold edges can be highlighted on the model.
+- Repair operations are selected explicitly by the user.
+- The original and repaired meshes can be compared before download.
+- The repaired model is exported as a standard binary STL.
+
+## Current capabilities
+
+- Binary and ASCII STL import
+- Open-edge detection
+- Non-manifold-edge detection
+- Degenerate- and duplicate-face detection
+- Disconnected-shell counting
+- Coincident-vertex welding
+- Unsafe-face removal
+- Surface-normal recalculation
+- Conservative planar-hole filling
+- Original/repaired comparison
+- Binary STL export
+
+MeshMedic deliberately avoids aggressive geometry changes. Complex curved
+holes, self-intersections, overlapping shells and severely corrupted meshes may
+still require a full mesh editor such as Blender or MeshLab. Always inspect the
+final slice preview before printing.
+
+## Self-hosting
+
+### Requirements
+
+- Node.js 22.13 or newer
+- npm
+- A modern browser with WebGL
+
+### Install and run
 
 ```bash
+git clone https://github.com/GrahamMorbyDev/meshmedic.git
+cd meshmedic
 npm install
 npm run dev
+```
+
+Open the local address shown in the terminal.
+
+### Production build
+
+```bash
 npm run build
+npm start
 ```
 
-This starter does not use `wrangler.jsonc`.
+The application is built with React, TypeScript, Three.js and
+[Vinext](https://github.com/cloudflare/vinext).
 
-## Included Shape
+## Optional Google Analytics
 
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
+Analytics is disabled when no measurement ID is configured. To enable the
+consent-aware GA4 integration for your own deployment:
 
-## Workspace Auth Headers
-
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```bash
+cp .env.example .env.local
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+Then set:
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+```dotenv
+GA_MEASUREMENT_ID=G-YOUR-ID
+```
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+Visitors must choose **Allow analytics** before the Google tag loads. Advertising
+storage, advertising user data and advertising personalisation remain denied.
+Never reuse the production MeshMedic measurement ID for a separate deployment.
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+## Privacy model
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+STL file contents and mesh geometry remain in the visitor’s browser. MeshMedic
+does not provide an STL upload API or server-side model store.
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+If optional analytics is enabled, it records ordinary website usage only after
+consent. The application does not send STL contents, filenames, triangle data
+or repaired geometry to Google Analytics.
 
-## Useful Commands
+Because the source is public, operators and users can inspect this behaviour or
+run their own copy.
 
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+## Useful commands
 
-## Learn More
+```bash
+npm run dev       # Start local development
+npm run build     # Create a production build
+npm start         # Run the production build
+npm test          # Build and run project checks
+npm run lint      # Run ESLint
+```
 
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+## Contributing
+
+Issues, difficult test meshes and focused pull requests are welcome. When
+reporting a repair problem, describe:
+
+- What the original mesh problem was
+- What MeshMedic detected
+- Which repair operations were selected
+- Whether the repaired file sliced correctly
+
+Only share an STL publicly when you own it or have permission to redistribute
+it. A minimal reproducible mesh is preferable for bug reports.
+
+## Security and privacy reports
+
+Please avoid attaching confidential or commercially sensitive models to public
+GitHub issues. Report security or privacy concerns privately through the
+repository owner’s GitHub profile.
+
+## Licence
+
+MeshMedic is available under the [MIT Licence](LICENSE).
+
+Copyright © 2026 [Grey Patrick](https://greypatrick.com).

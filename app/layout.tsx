@@ -126,7 +126,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body className={`${manrope.variable} ${dmMono.variable}`}>
         {children}
-        <AnalyticsConsent />
+        <AnalyticsConsent measurementId={process.env.GA_MEASUREMENT_ID ?? ""} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       </body>
     </html>
