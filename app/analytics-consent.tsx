@@ -17,7 +17,11 @@ function loadGoogleAnalytics(measurementId: string) {
   if (document.getElementById("meshmedic-google-analytics")) return;
 
   window.dataLayer = window.dataLayer || [];
-  window.gtag = (...args: unknown[]) => window.dataLayer.push(args);
+  window.gtag = function gtag() {
+    // Google Analytics requires the function's Arguments object here.
+    // eslint-disable-next-line prefer-rest-params
+    window.dataLayer.push(arguments);
+  };
   window.gtag("consent", "default", {
     analytics_storage: "granted",
     ad_storage: "denied",
@@ -25,7 +29,8 @@ function loadGoogleAnalytics(measurementId: string) {
     ad_personalization: "denied",
   });
   window.gtag("js", new Date());
-  window.gtag("config", measurementId);
+  window.gtag("config", measurementId, { send_page_view: true });
+  window.gtag("event", "meshmedic_analytics_enabled");
 
   const script = document.createElement("script");
   script.id = "meshmedic-google-analytics";

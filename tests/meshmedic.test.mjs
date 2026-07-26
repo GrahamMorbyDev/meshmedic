@@ -25,6 +25,9 @@ test("analytics is optional and never uses the production ID in source", async (
   assert.match(consent, /if \(!measurementId\) return null/);
   assert.match(consent, /analytics_storage: "granted"/);
   assert.match(consent, /ad_storage: "denied"/);
+  assert.match(consent, /dataLayer\.push\(arguments\)/);
+  assert.match(consent, /send_page_view: true/);
+  assert.match(consent, /meshmedic_analytics_enabled/);
   assert.match(example, /GA_MEASUREMENT_ID=/);
   assert.doesNotMatch(`${layout}\n${consent}\n${example}`, /G-[A-Z0-9]{10}/);
 });
