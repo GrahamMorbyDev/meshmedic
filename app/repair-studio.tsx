@@ -560,7 +560,10 @@ export function RepairStudio() {
           <span>MeshMedic</span>
         </a>
         <div className="privacy-pill"><span /> Local processing · your file stays private</div>
-        <a className="text-link" href="#how-it-works">How it works</a>
+        <div className="topbar-actions">
+          <a className="text-link" href="#how-it-works">How it works</a>
+          <a className="support-button" href="https://buymeacoffee.com/skylrskitchen" target="_blank" rel="noreferrer">☕ Support MeshMedic</a>
+        </div>
       </header>
 
       <section className="hero">
@@ -743,6 +746,18 @@ export function RepairStudio() {
         <div><span>02</span><strong>Changes you can see</strong><p>Compare topology counts before exporting the repaired model.</p></div>
         <div><span>03</span><strong>Slicer-ready output</strong><p>Download a standard binary STL for your existing print workflow.</p></div>
       </section>
+
+      <aside className="support-card">
+        <div className="support-cup" aria-hidden="true">☕</div>
+        <div>
+          <span className="eyebrow">Community supported</span>
+          <h2>MeshMedic is free to use.</h2>
+          <p>If it rescued a model or saved you a failed print, you can help keep the tool improving with a small, entirely optional contribution.</p>
+        </div>
+        <a href="https://buymeacoffee.com/skylrskitchen" target="_blank" rel="noreferrer">
+          Buy us a coffee <span>↗</span>
+        </a>
+      </aside>
 
       <section className="seo-content">
         <div className="seo-intro">
