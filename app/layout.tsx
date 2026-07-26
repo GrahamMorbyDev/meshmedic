@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Mono, Manrope } from "next/font/google";
+import { AnalyticsConsent } from "./analytics-consent";
 import "./globals.css";
 
 const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"] });
@@ -125,6 +126,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body className={`${manrope.variable} ${dmMono.variable}`}>
         {children}
+        <AnalyticsConsent />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       </body>
     </html>
