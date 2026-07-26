@@ -562,7 +562,7 @@ export function RepairStudio() {
         <div className="privacy-pill"><span /> Local processing · your file stays private</div>
         <div className="topbar-actions">
           <a className="text-link" href="#how-it-works">How it works</a>
-          <a className="support-button" href="https://buymeacoffee.com/skylrskitchen" target="_blank" rel="noreferrer">☕ Support MeshMedic</a>
+          <a className="support-button" href="https://buymeacoffee.com/greypatrick" target="_blank" rel="noreferrer">☕ Support MeshMedic</a>
         </div>
       </header>
 
@@ -754,7 +754,7 @@ export function RepairStudio() {
           <h2>MeshMedic is free to use.</h2>
           <p>If it rescued a model or saved you a failed print, you can help keep the tool improving with a small, entirely optional contribution.</p>
         </div>
-        <a href="https://buymeacoffee.com/skylrskitchen" target="_blank" rel="noreferrer">
+        <a href="https://buymeacoffee.com/greypatrick" target="_blank" rel="noreferrer">
           Buy us a coffee <span>↗</span>
         </a>
       </aside>
