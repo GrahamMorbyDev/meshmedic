@@ -4,8 +4,10 @@ import { ChangeEvent, DragEvent, useCallback, useEffect, useRef, useState } from
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLExporter } from "three/examples/jsm/exporters/STLExporter.js";
+import { ThreeMFLoader } from "three/examples/jsm/loaders/3MFLoader.js";
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
-import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { mergeGeometries, mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 type MeshStats = {
   triangles: number;
@@ -51,6 +53,53 @@ const EMPTY_STATS: MeshStats = {
 };
 
 const fmt = new Intl.NumberFormat("en-GB");
+const SUPPORTED_EXTENSIONS = [".stl", ".obj", ".3mf"] as const;
+
+function fileExtension(name: string) {
+  return SUPPORTED_EXTENSIONS.find((extension) => name.toLowerCase().endsWith(extension));
+}
+
+function positionOnlyGeometry(source: THREE.BufferGeometry, transform?: THREE.Matrix4) {
+  const transformed = source.clone();
+  if (transform) transformed.applyMatrix4(transform);
+  const triangles = transformed.index ? transformed.toNonIndexed() : transformed;
+  const position = triangles.getAttribute("position");
+  if (!position) {
+    transformed.dispose();
+    if (triangles !== transformed) triangles.dispose();
+    return null;
+  }
+
+  const result = new THREE.BufferGeometry();
+  result.setAttribute("position", position.clone());
+  transformed.dispose();
+  if (triangles !== transformed) triangles.dispose();
+  return result;
+}
+
+function geometryFromObject(root: THREE.Object3D) {
+  const parts: THREE.BufferGeometry[] = [];
+  root.updateMatrixWorld(true);
+  root.traverse((child) => {
+    if (!(child instanceof THREE.Mesh) || !child.visible) return;
+    const geometry = positionOnlyGeometry(child.geometry, child.matrixWorld);
+    if (geometry) parts.push(geometry);
+  });
+
+  if (!parts.length) throw new Error("No triangle meshes found");
+  const combined = parts.length === 1 ? parts[0].clone() : mergeGeometries(parts, false);
+  parts.forEach((part) => part.dispose());
+  if (!combined) throw new Error("Mesh components could not be combined");
+  return combined;
+}
+
+function parseModelFile(buffer: ArrayBuffer, extension: (typeof SUPPORTED_EXTENSIONS)[number]) {
+  if (extension === ".stl") return new STLLoader().parse(buffer);
+  if (extension === ".obj") {
+    return geometryFromObject(new OBJLoader().parse(new TextDecoder().decode(buffer)));
+  }
+  return geometryFromObject(new ThreeMFLoader().parse(buffer));
+}
 
 function vertexKey(position: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, i: number) {
   return `${position.getX(i).toFixed(5)},${position.getY(i).toFixed(5)},${position.getZ(i).toFixed(5)}`;
@@ -449,12 +498,13 @@ export function RepairStudio() {
     recalculateNormals: true,
     fillPlanarHoles: true,
   });
-  const [status, setStatus] = useState("Waiting for an STL");
+  const [status, setStatus] = useState("Waiting for a 3D model");
 
   const loadFile = useCallback(async (file?: File) => {
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".stl")) {
-      setStatus("Please choose an STL file");
+    const extension = fileExtension(file.name);
+    if (!extension) {
+      setStatus("Please choose an STL, OBJ or 3MF file");
       return;
     }
     setProcessing(true);
@@ -462,8 +512,9 @@ export function RepairStudio() {
     await new Promise((resolve) => setTimeout(resolve, 120));
     try {
       const buffer = await file.arrayBuffer();
-      const geometry = new STLLoader().parse(buffer);
+      const geometry = parseModelFile(buffer, extension);
       const indexed = mergeVertices(geometry, 1e-5);
+      geometry.dispose();
       indexed.computeVertexNormals();
       const stats = analyseGeometry(indexed);
       setModel({
@@ -479,7 +530,7 @@ export function RepairStudio() {
       setActiveIssue(null);
       setStatus(stats.nakedEdges || stats.nonManifoldEdges ? "Issues found — safe repair is ready" : "Mesh looks healthy");
     } catch {
-      setStatus("That STL could not be read");
+      setStatus(`That ${extension.slice(1).toUpperCase()} file could not be read`);
     } finally {
       setProcessing(false);
     }
@@ -537,7 +588,7 @@ export function RepairStudio() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = model.name.replace(/\.stl$/i, "") + "-repaired.stl";
+    anchor.download = model.name.replace(/\.(stl|obj|3mf)$/i, "") + "-repaired.stl";
     anchor.click();
     URL.revokeObjectURL(url);
   };
@@ -567,9 +618,9 @@ export function RepairStudio() {
       </header>
 
       <section className="hero">
-        <div className="eyebrow">Transparent STL diagnostics and repair</div>
+        <div className="eyebrow">Private STL, OBJ &amp; 3MF diagnostics and repair</div>
         <h1>See what’s broken.<br /><em>Repair it with confidence.</em></h1>
-        <p>MeshMedic highlights STL faults, explains what they mean and lets you choose exactly what to repair. Compare the result before downloading—privately in your browser.</p>
+        <p>MeshMedic highlights mesh faults in STL, OBJ and 3MF files, explains what they mean and lets you choose exactly what to repair. Compare the result before downloading—privately in your browser.</p>
       </section>
 
       <section className="workspace">
@@ -596,10 +647,10 @@ export function RepairStudio() {
             {!model && (
               <div className="drop-content">
                 <div className="upload-glyph">↥</div>
-                <h2>Drop your STL here</h2>
-                <p>Binary or ASCII · up to 100 MB</p>
+                <h2>Drop your 3D model here</h2>
+                <p>STL, OBJ or 3MF · up to 100 MB</p>
                 <button className="primary-button" onClick={() => inputRef.current?.click()}>Choose a file</button>
-                <input ref={inputRef} type="file" accept=".stl,model/stl" onChange={onInput} hidden />
+                <input ref={inputRef} type="file" accept=".stl,.obj,.3mf,model/stl,model/obj,model/3mf" onChange={onInput} hidden />
               </div>
             )}
             {processing && <div className="processing"><span className="spinner" /> {status}</div>}
@@ -761,9 +812,9 @@ export function RepairStudio() {
 
       <section className="seo-content">
         <div className="seo-intro">
-          <span className="eyebrow">Free online STL fixer</span>
+          <span className="eyebrow">Free online STL, OBJ &amp; 3MF fixer</span>
           <h2>Make broken 3D models printable again.</h2>
-          <p>An STL can look correct on screen while still containing gaps, doubled triangles, inside-out surfaces or impossible edges. MeshMedic examines the triangle topology behind the model, shows you where common faults live and lets you choose which safe repairs to apply.</p>
+          <p>A 3D model can look correct on screen while still containing gaps, doubled triangles, inside-out surfaces or impossible edges. MeshMedic examines the triangle topology behind STL, OBJ and 3MF files, shows you where common faults live and lets you choose which safe repairs to apply.</p>
         </div>
         <div className="seo-features">
           <article>
@@ -779,18 +830,18 @@ export function RepairStudio() {
           <article>
             <span>03</span>
             <h3>Repair without uploading</h3>
-            <p>Your STL stays on your device. Analysis, visualisation and repair run locally in the browser, with no server queue or model storage.</p>
+            <p>Your STL, OBJ or 3MF stays on your device. Analysis, visualisation and repair run locally in the browser, with no server queue or model storage.</p>
           </article>
         </div>
         <div className="faq-block" id="faq">
           <div>
-            <span className="eyebrow">STL repair questions</span>
+            <span className="eyebrow">3D model repair questions</span>
             <h2>Before you slice.</h2>
           </div>
           <div className="faq-list">
             <details>
-              <summary>How do I repair an STL file online?<span>+</span></summary>
-              <p>Drop the STL into MeshMedic, inspect the highlighted issues, select your repair operations and compare the original with the repaired model before downloading.</p>
+              <summary>Which 3D model formats can I repair?<span>+</span></summary>
+              <p>Drop an STL, OBJ or 3MF into MeshMedic, inspect the highlighted issues, select your repair operations and compare the original with the repaired model before downloading a repaired STL.</p>
             </details>
             <details>
               <summary>Does MeshMedic upload or store my model?<span>+</span></summary>

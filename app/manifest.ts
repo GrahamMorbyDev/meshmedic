@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "MeshMedic — STL Repair",
+    name: "MeshMedic — STL, OBJ & 3MF Repair",
     short_name: "MeshMedic",
-    description: "Inspect and repair common STL mesh problems privately in your browser.",
+    description: "Inspect and repair common STL, OBJ and 3MF mesh problems privately in your browser.",
     start_url: "/",
     display: "standalone",
     background_color: "#f3f5f1",

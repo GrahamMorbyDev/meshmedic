@@ -9,10 +9,10 @@ const dmMono = DM_Mono({ variable: "--font-mono", subsets: ["latin"], weight: ["
 export const metadata: Metadata = {
   metadataBase: new URL("https://mesh-medic.com"),
   title: {
-    default: "Free Online STL Repair Tool | MeshMedic",
+    default: "Free Online STL, OBJ & 3MF Repair Tool | MeshMedic",
     template: "%s | MeshMedic",
   },
-  description: "Find and highlight STL mesh faults, understand what’s wrong, choose safe repairs and compare the result before downloading. Free and private in your browser.",
+  description: "Find and repair mesh faults in STL, OBJ and 3MF files, compare the result and download a repaired STL. Free and private in your browser.",
   keywords: [
     "STL repair",
     "repair STL online",
@@ -22,6 +22,10 @@ export const metadata: Metadata = {
     "mesh repair",
     "watertight STL",
     "STL error checker",
+    "OBJ repair",
+    "3MF repair",
+    "repair OBJ online",
+    "repair 3MF online",
   ],
   alternates: { canonical: "/" },
   robots: {
@@ -39,14 +43,14 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://mesh-medic.com",
     siteName: "MeshMedic",
-    title: "Free Online STL Repair Tool | MeshMedic",
-    description: "See what’s broken, choose safe STL repairs and compare the result before downloading. Free, transparent and private in your browser.",
+    title: "Free Online STL, OBJ & 3MF Repair Tool | MeshMedic",
+    description: "See what’s broken in STL, OBJ and 3MF files, choose safe repairs and compare the result. Free, transparent and private in your browser.",
     locale: "en_GB",
   },
   twitter: {
     card: "summary",
-    title: "Free Online STL Repair Tool | MeshMedic",
-    description: "See what’s broken, choose safe STL repairs and verify the result privately in your browser.",
+    title: "Free Online STL, OBJ & 3MF Repair Tool | MeshMedic",
+    description: "Repair STL, OBJ and 3MF mesh faults and verify the result privately in your browser.",
   },
   category: "technology",
   icons: {
@@ -72,7 +76,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         applicationCategory: "UtilitiesApplication",
         operatingSystem: "Any modern web browser",
         browserRequirements: "Requires JavaScript and WebGL",
-        description: "A transparent browser-based STL repair tool that highlights mesh faults, explains them, gives users control over repairs and supports before-and-after verification.",
+        description: "A private browser-based STL, OBJ and 3MF repair tool that highlights mesh faults, explains them, gives users control over repairs and supports before-and-after verification.",
         offers: { "@type": "Offer", price: "0", priceCurrency: "GBP" },
         featureList: [
           "Open-edge detection",
@@ -81,6 +85,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           "Coincident vertex welding",
           "Surface normal recalculation",
           "Conservative planar hole filling",
+          "OBJ and 3MF import",
           "Binary STL export",
         ],
         creator: {
@@ -95,18 +100,18 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         mainEntity: [
           {
             "@type": "Question",
-            name: "How do I repair an STL file online?",
+            name: "Which 3D model formats can MeshMedic repair?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Drop an STL into MeshMedic, review the mesh diagnostics, select the repair operations you want, compare the original and repaired models, then download the repaired STL.",
+              text: "Drop an STL, OBJ or 3MF into MeshMedic, review the mesh diagnostics, select the repair operations you want, compare the original and repaired models, then download the repaired STL.",
             },
           },
           {
             "@type": "Question",
-            name: "Does MeshMedic upload or store my STL file?",
+            name: "Does MeshMedic upload or store my 3D model?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "No. MeshMedic processes the STL locally in your browser, so the model is not uploaded to a MeshMedic server.",
+              text: "No. MeshMedic processes STL, OBJ and 3MF files locally in your browser, so the model is not uploaded to a MeshMedic server.",
             },
           },
           {

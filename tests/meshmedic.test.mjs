@@ -39,3 +39,13 @@ test("public copy accurately describes local STL processing", async () => {
   assert.match(studio, /Analysis, visualisation and repair run locally in the browser/i);
   assert.match(studio, /Compare the original and repaired mesh before downloading/i);
 });
+
+test("STL, OBJ and 3MF files share the private mesh repair pipeline", async () => {
+  const studio = await readFile(new URL("app/repair-studio.tsx", root), "utf8");
+
+  assert.match(studio, /ThreeMFLoader/);
+  assert.match(studio, /OBJLoader/);
+  assert.match(studio, /accept="\.stl,\.obj,\.3mf/);
+  assert.match(studio, /geometryFromObject/);
+  assert.match(studio, /repaired\.stl/);
+});
